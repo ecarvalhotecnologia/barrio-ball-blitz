@@ -30,8 +30,8 @@ const Championship = () => {
   useEffect(() => {
     if (!isAuthenticated) {
       toast({
-        title: "Not authorized",
-        description: "Please log in to view this championship",
+        title: "Não autorizado",
+        description: "Por favor, faça login para visualizar este campeonato",
         variant: "destructive",
       });
       navigate("/login");
@@ -45,8 +45,8 @@ const Championship = () => {
         setChampionship(loadedChampionship);
       } else {
         toast({
-          title: "Error",
-          description: "Championship not found",
+          title: "Erro",
+          description: "Campeonato não encontrado",
           variant: "destructive",
         });
         navigate("/dashboard");
@@ -81,8 +81,70 @@ const Championship = () => {
     updateChampionship(progressedChampionship);
     
     toast({
-      title: "Match Simulated",
-      description: `Final score: ${updatedMatches[matchIndex].team1.name} ${updatedMatches[matchIndex].team1Goals} - ${updatedMatches[matchIndex].team2Goals} ${updatedMatches[matchIndex].team2.name}`,
+      title: "Partida Simulada",
+      description: `Placar final: ${updatedMatches[matchIndex].team1.name} ${updatedMatches[matchIndex].team1Goals} - ${updatedMatches[matchIndex].team2Goals} ${updatedMatches[matchIndex].team2.name}`,
+    });
+  };
+  
+  const handleManualScore = (matchId: string, team1Goals: number, team2Goals: number) => {
+    if (!championship) return;
+    
+    // Find the match to update
+    const matchIndex = championship.matches.findIndex(m => m.id === matchId);
+    if (matchIndex === -1) return;
+    
+    // Create a copy of the match
+    const match = { ...championship.matches[matchIndex] };
+    
+    // Update match with manual score
+    match.team1Goals = team1Goals;
+    match.team2Goals = team2Goals;
+    match.played = true;
+    
+    // Determine winner
+    if (team1Goals > team2Goals) {
+      match.winner = match.team1;
+    } else if (team2Goals > team1Goals) {
+      match.winner = match.team2;
+    } else {
+      // Tiebreaker rule based on accumulated points
+      const team1Points = match.team1.points;
+      const team2Points = match.team2.points;
+      
+      if (team1Points > team2Points) {
+        match.winner = match.team1;
+      } else if (team2Points > team1Points) {
+        match.winner = match.team2;
+      } else {
+        // Tiebreaker based on registration order
+        match.winner = match.team1.registrationOrder < match.team2.registrationOrder ? match.team1 : match.team2;
+      }
+    }
+    
+    // Update points for teams
+    match.team1.points += team1Goals - team2Goals;
+    match.team2.points += team2Goals - team1Goals;
+    
+    // Update the matches array
+    const updatedMatches = [...championship.matches];
+    updatedMatches[matchIndex] = match;
+    
+    // Create updated championship
+    const updatedChampionship = {
+      ...championship,
+      matches: updatedMatches,
+    };
+    
+    // Progress the tournament based on the match result
+    const progressedChampionship = progressTournament(updatedChampionship);
+    
+    // Update championship state and storage
+    setChampionship(progressedChampionship);
+    updateChampionship(progressedChampionship);
+    
+    toast({
+      title: "Placar Registrado",
+      description: `Placar final: ${match.team1.name} ${team1Goals} - ${team2Goals} ${match.team2.name}`,
     });
   };
   
@@ -100,13 +162,13 @@ const Championship = () => {
       updateChampionship(simulatedChampionship);
       
       toast({
-        title: "Championship Completed",
-        description: `${simulatedChampionship.winner?.name} is the champion!`,
+        title: "Campeonato Concluído",
+        description: `${simulatedChampionship.winner?.name} é o campeão!`,
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to simulate championship",
+        title: "Erro",
+        description: "Falha ao simular campeonato",
         variant: "destructive",
       });
     } finally {
@@ -141,19 +203,19 @@ const Championship = () => {
                 <h1 className="text-2xl font-bold text-gray-800">{championship.name}</h1>
                 {championship.completed && (
                   <span className="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                    Completed
+                    Concluído
                   </span>
                 )}
               </div>
               <p className="text-gray-600">
-                Created on {new Date(championship.createdAt).toLocaleDateString()}
+                Criado em {new Date(championship.createdAt).toLocaleDateString()}
               </p>
             </div>
             
             <div className="flex gap-4">
               <Link to="/dashboard">
                 <Button variant="outline">
-                  Back to Dashboard
+                  Voltar ao Painel
                 </Button>
               </Link>
               
@@ -163,7 +225,7 @@ const Championship = () => {
                   onClick={handleSimulateAll}
                   disabled={isSimulating}
                 >
-                  {isSimulating ? "Simulating..." : "Simulate All"}
+                  {isSimulating ? "Simulando..." : "Simular Todos"}
                 </Button>
               )}
             </div>
@@ -172,10 +234,11 @@ const Championship = () => {
         
         {/* Tournament Bracket */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8 overflow-x-auto">
-          <h2 className="text-xl font-semibold mb-6 text-center">Tournament Bracket</h2>
+          <h2 className="text-xl font-semibold mb-6 text-center">Chaves do Torneio</h2>
           <TournamentBracket
             championship={championship}
             onSimulateMatch={!championship.completed ? handleSimulateMatch : undefined}
+            onManualScore={!championship.completed ? handleManualScore : undefined}
           />
         </div>
         
@@ -183,7 +246,7 @@ const Championship = () => {
         <div className="grid md:grid-cols-2 gap-8">
           {/* Teams List */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold mb-4">Teams</h2>
+            <h2 className="text-lg font-semibold mb-4">Equipes</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {championship.teams.map((team) => (
                 <TeamCard key={team.id} team={team} />
@@ -193,12 +256,12 @@ const Championship = () => {
           
           {/* Championship Results */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold mb-4">Championship Status</h2>
+            <h2 className="text-lg font-semibold mb-4">Status do Campeonato</h2>
             
             {championship.completed ? (
               <div>
                 <div className="bg-championship-light rounded-lg p-6 mb-6">
-                  <h3 className="text-lg font-bold text-championship-primary mb-4">Final Results</h3>
+                  <h3 className="text-lg font-bold text-championship-primary mb-4">Resultados Finais</h3>
                   <div className="space-y-4">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 w-8 h-8 bg-championship-primary text-white rounded-full flex items-center justify-center font-bold mr-3">
@@ -206,7 +269,7 @@ const Championship = () => {
                       </div>
                       <div>
                         <span className="font-semibold">{championship.winner?.name}</span>
-                        <span className="text-sm text-gray-500 block">Champion</span>
+                        <span className="text-sm text-gray-500 block">Campeão</span>
                       </div>
                     </div>
                     
@@ -216,7 +279,7 @@ const Championship = () => {
                       </div>
                       <div>
                         <span className="font-semibold">{championship.runnerUp?.name}</span>
-                        <span className="text-sm text-gray-500 block">Runner Up</span>
+                        <span className="text-sm text-gray-500 block">Vice-Campeão</span>
                       </div>
                     </div>
                     
@@ -226,7 +289,7 @@ const Championship = () => {
                       </div>
                       <div>
                         <span className="font-semibold">{championship.thirdPlace?.name}</span>
-                        <span className="text-sm text-gray-500 block">Third Place</span>
+                        <span className="text-sm text-gray-500 block">Terceiro Lugar</span>
                       </div>
                     </div>
                     
@@ -236,7 +299,7 @@ const Championship = () => {
                       </div>
                       <div>
                         <span className="font-semibold">{championship.fourthPlace?.name}</span>
-                        <span className="text-sm text-gray-500 block">Fourth Place</span>
+                        <span className="text-sm text-gray-500 block">Quarto Lugar</span>
                       </div>
                     </div>
                   </div>
@@ -244,43 +307,43 @@ const Championship = () => {
                 
                 <Link to="/create-championship">
                   <Button className="w-full bg-championship-primary hover:bg-championship-secondary">
-                    Create New Championship
+                    Criar Novo Campeonato
                   </Button>
                 </Link>
               </div>
             ) : (
               <div>
                 <p className="text-gray-700 mb-6">
-                  This championship is in progress. Simulate matches to continue the tournament.
+                  Este campeonato está em andamento. Simule as partidas para continuar o torneio ou insira os placares manualmente.
                 </p>
                 
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Matches Played</span>
+                    <span className="text-gray-600">Partidas Realizadas</span>
                     <span className="font-semibold">
                       {championship.matches.filter(m => m.played).length} / 7
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Current Round</span>
+                    <span className="text-gray-600">Rodada Atual</span>
                     <span className="font-semibold">
                       {championship.matches.filter(m => m.round === 1 && m.played).length === 4
                         ? championship.matches.filter(m => m.round === 2 && m.played).length === 2
-                          ? "Finals"
-                          : "Semifinals"
-                        : "Quarterfinals"}
+                          ? "Finais"
+                          : "Semifinais"
+                        : "Quartas de Final"}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Next Action</span>
+                    <span className="text-gray-600">Próxima Ação</span>
                     <span className="font-semibold text-championship-primary">
                       {championship.matches.filter(m => m.round === 1 && m.played).length < 4
-                        ? "Simulate Quarterfinals"
+                        ? "Simular Quartas de Final"
                         : championship.matches.filter(m => m.round === 2 && m.played).length < 2
-                        ? "Simulate Semifinals"
-                        : "Simulate Finals"}
+                        ? "Simular Semifinais"
+                        : "Simular Finais"}
                     </span>
                   </div>
                 </div>
@@ -291,7 +354,7 @@ const Championship = () => {
                     onClick={handleSimulateAll}
                     disabled={isSimulating}
                   >
-                    {isSimulating ? "Simulating..." : "Simulate All Remaining Matches"}
+                    {isSimulating ? "Simulando..." : "Simular Todas as Partidas Restantes"}
                   </Button>
                 </div>
               </div>
