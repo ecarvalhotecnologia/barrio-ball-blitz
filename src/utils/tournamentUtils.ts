@@ -1,10 +1,10 @@
-
 export interface Team {
   id: string;
   name: string;
   logo?: string;
   createdAt: string;
   registrationOrder: number;
+  points: number; // Added points property to fix TypeScript errors
 }
 
 export interface Match {
@@ -92,8 +92,11 @@ export const createChampionship = (name: string, teams: Team[]): Championship =>
     throw new Error("Championship must have exactly 8 teams");
   }
   
-  // Shuffle teams to randomize matchups
-  const shuffledTeams = [...teams].sort(() => Math.random() - 0.5);
+  // Shuffle teams to randomize matchups and initialize points
+  const shuffledTeams = [...teams].map(team => ({
+    ...team,
+    points: 0 // Initialize points for each team
+  })).sort(() => Math.random() - 0.5);
   
   // Create quarterfinal matches
   const matches: Match[] = [];
